@@ -19,10 +19,15 @@ import csv
 import time
 
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT.parent / "datasets"
-ROOT_PARENT = ROOT.parent
+PROJECT_DIR = ROOT.parent
+DATA_DIR = PROJECT_DIR / "datasets"
+APP_DATA_DIR = Path(os.environ.get("APP_DATA_DIR", str(PROJECT_DIR / "data")))
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+CHATS_FILE = APP_DATA_DIR / "chats.json"
+READ_STATUS_FILE = APP_DATA_DIR / "read_status.json"
+RATINGS_FILE = APP_DATA_DIR / "teacher_ratings.csv"
+ROOT_PARENT = PROJECT_DIR
 PORT = int(os.environ.get("PORT", "8000"))
-
 # External Engines
 _engine_singleton = None
 _ai_engine_singleton = None
@@ -50,9 +55,9 @@ def get_ai():
 
 def get_teacher_rating_stats(tid):
     ratings = []
-    if os.path.exists(str(DATA_DIR / "teacher_ratings.csv")):
+    if os.path.exists(str(RATINGS_FILE)):
         try:
-            with open(str(DATA_DIR / "teacher_ratings.csv"), "r") as f:
+            with open(str(RATINGS_FILE), "r") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     if row["teacher_id"] == tid:
@@ -66,9 +71,9 @@ def get_teacher_rating_stats(tid):
 def get_guide_metrics(tid):
     mentored_student_ids = set()
     unreplied_count = 0
-    if os.path.exists(str(ROOT_PARENT / "chats.json")):
+    if os.path.exists(str(CHATS_FILE)):
         try:
-            with open(str(ROOT_PARENT / "chats.json"), "r") as f:
+            with open(str(CHATS_FILE), "r") as f:
                 chat_data = json.load(f)
                 for cid_tid, msgs in chat_data.items():
                     if tid.upper() in cid_tid.upper():
@@ -80,14 +85,14 @@ def get_guide_metrics(tid):
     return {"mentored": len(mentored_student_ids), "unreplied": unreplied_count, "mentored_ids": list(mentored_student_ids)}
 
 def get_read_status():
-    if os.path.exists(str(ROOT_PARENT / "read_status.json")):
-        with open(str(ROOT_PARENT / "read_status.json"), "r") as f:
+    if os.path.exists(str(READ_STATUS_FILE)):
+        with open(str(READ_STATUS_FILE), "r") as f:
             try: return json.load(f)
             except: return {}
     return {}
 
 def save_read_status(data):
-    with open(str(ROOT_PARENT / "read_status.json"), "w") as f:
+    with open(str(READ_STATUS_FILE), "w") as f:
         json.dump(data, f)
 
 class AppHandler(SimpleHTTPRequestHandler):
@@ -106,7 +111,11 @@ class AppHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
-        
+        if path == "/health":
+            body = json.dumps({"status": "healthy"}).encode("utf-8")
+            self.send_response(200)
+            self._send_json(body)
+            return        
         # Serve app.html as default for root path
         if path == "/" or path == "/index.html":
             self.path = "/app.html"
@@ -141,8 +150,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             a, b = params.get("user_a"), params.get("user_b")
             chat_id = f"{a}-{b}" if a < b else f"{b}-{a}"
             history = []
-            if os.path.exists(str(ROOT_PARENT / "chats.json")):
-                with open(str(ROOT_PARENT / "chats.json"), "r") as f:
+            if os.path.exists(str(CHATS_FILE)):
+                with open(str(CHATS_FILE), "r") as f:
                     data = json.load(f)
                     history = data.get(chat_id, [])
             self.send_response(200)
@@ -203,7 +212,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if pair.startswith("id="): tid = pair.split("=")[1]
             
             conversations = []
-            if os.path.exists(str(ROOT_PARENT / "chats.json")) and os.path.exists(str(DATA_DIR / "customer_dataset.csv")):
+            if os.path.exists(str(CHATS_FILE)) and os.path.exists(str(DATA_DIR / "customer_dataset.csv")):
                 # 1. Map all customer IDs to names for lookup
                 customers = {}
                 with open(str(DATA_DIR / "customer_dataset.csv"), "r") as f:
@@ -213,7 +222,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         if cid: customers[cid] = cname
                 
                 # 2. Match conversations from chats.json
-                with open(str(ROOT_PARENT / "chats.json"), "r") as f:
+                with open(str(CHATS_FILE), "r") as f:
                     try:
                         chat_data = json.load(f)
                         for cid_tid, msgs in chat_data.items():
@@ -247,7 +256,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 if pair.startswith("id="): cid = pair.split("=")[1]
             
             conversations = []
-            if os.path.exists(str(ROOT_PARENT / "chats.json")) and os.path.exists(str(DATA_DIR / "teacher_dataset.csv")):
+            if os.path.exists(str(CHATS_FILE)) and os.path.exists(str(DATA_DIR / "teacher_dataset.csv")):
                 # 1. Map all teacher IDs to names
                 teachers = {}
                 with open(str(DATA_DIR / "teacher_dataset.csv"), "r") as f:
@@ -255,7 +264,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                         teachers[row["teacher_id"]] = row.get("full_name") or row.get("name")
                 
                 # 2. Check chats for this customer
-                with open(str(ROOT_PARENT / "chats.json"), "r") as f:
+                with open(str(CHATS_FILE), "r") as f:
                     try:
                         chat_data = json.load(f)
                         for cid_tid, msgs in chat_data.items():
@@ -460,13 +469,13 @@ class AppHandler(SimpleHTTPRequestHandler):
             chat_id = f"{s}-{r}" if s < r else f"{r}-{s}"
             
             data = {}
-            if os.path.exists(str(ROOT_PARENT / "chats.json")):
-                with open(str(ROOT_PARENT / "chats.json"), "r") as f: data = json.load(f)
+            if os.path.exists(str(CHATS_FILE)):
+                with open(str(CHATS_FILE), "r") as f: data = json.load(f)
             
             history = data.get(chat_id, [])
             history.append({"sender": s, "text": t, "timestamp": time.time()})
             data[chat_id] = history
-            with open(str(ROOT_PARENT / "chats.json"), "w") as f:
+            with open(str(CHATS_FILE), "w") as f:
                 json.dump(data, f)
             
             # Auto-mark as read for sender
@@ -487,8 +496,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             chat_id = f"{cid}-{tid}" if cid < tid else f"{tid}-{cid}"
             
             count = 0
-            if os.path.exists(str(ROOT_PARENT / "chats.json")):
-                with open(str(ROOT_PARENT / "chats.json"), "r") as f:
+            if os.path.exists(str(CHATS_FILE)):
+                with open(str(CHATS_FILE), "r") as f:
                     try:
                         cdata = json.load(f)
                         count = len(cdata.get(chat_id, []))
@@ -513,8 +522,8 @@ class AppHandler(SimpleHTTPRequestHandler):
             # Read existing to find if we need to update
             rows = []
             updated = False
-            if os.path.exists(str(DATA_DIR / "teacher_ratings.csv")):
-                with open(str(DATA_DIR / "teacher_ratings.csv"), "r") as f:
+            if os.path.exists(str(RATINGS_FILE)):
+                with open(str(RATINGS_FILE), "r") as f:
                     rows = list(csv.DictReader(f))
             
             for row in rows:
@@ -526,7 +535,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             if not updated:
                 rows.append({"teacher_id": tid, "student_id": sid, "rating_value": str(val), "timestamp": ""})
             
-            with open(str(DATA_DIR / "teacher_ratings.csv"), "w", newline="") as f:
+            with open(str(RATINGS_FILE), "w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=["teacher_id", "student_id", "rating_value", "timestamp"])
                 writer.writeheader()
                 writer.writerows(rows)
@@ -544,8 +553,8 @@ def main() -> None:
         print(f"Could not load ML models: {e}", file=sys.stderr)
         sys.exit(1)
 
-    httpd = ThreadingHTTPServer(("127.0.0.1", PORT), AppHandler)
-    print(f"Serving at http://127.0.0.1:{PORT}/")
+    httpd = ThreadingHTTPServer(("0.0.0.0", PORT), AppHandler)
+    print(f"Serving at http://0.0.0.0:{PORT}/")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

@@ -10,3 +10,7 @@ venv/
 # IDE files
 .vscode/
 .idea/
+/data
+.pytest_cache/
+backup-before-persistence/
+backend/.*.swp

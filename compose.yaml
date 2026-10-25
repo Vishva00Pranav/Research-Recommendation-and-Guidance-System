@@ -1,0 +1,20 @@
+
+services:
+  app:
+    build: .
+    image: research-recommendation:local
+    container_name: research-recommendation-app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      APP_DATA_DIR: /app/data
+      PORT: "8000"
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  app-data:
+

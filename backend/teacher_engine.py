@@ -6,11 +6,18 @@ Handles guide and customer authentication, domain inference, and persistent chat
 import csv
 import json
 import time
+import os
 from pathlib import Path
 
-TEACHER_CSV  = Path(__file__).resolve().parent.parent / "datasets" / "teacher_dataset.csv"
-CUSTOMER_CSV = Path(__file__).resolve().parent.parent / "datasets" / "customer_dataset.csv"
-CHATS_JSON   = Path(__file__).resolve().parent / "chats.json"
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+APP_DATA_DIR = Path(
+    os.environ.get("APP_DATA_DIR", str(PROJECT_DIR / "data"))
+)
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+TEACHER_CSV = PROJECT_DIR / "datasets" / "teacher_dataset.csv"
+CUSTOMER_CSV = PROJECT_DIR / "datasets" / "customer_dataset.csv"
+CHATS_JSON = APP_DATA_DIR / "chats.json"
 
 _teachers = []
 # (Removed global _customers cache to ensure real-time CSV reloading)
