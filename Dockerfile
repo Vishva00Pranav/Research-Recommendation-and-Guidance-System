@@ -18,7 +18,8 @@ RUN python -m pip install \
     --timeout 120 \
     -r requirements.txt
 RUN python -m pip install --no-cache-dir --upgrade \
-    pip==24.3.1 setuptools==75.8.0 wheel==0.45.1
+    pip setuptools wheel \
+    && python -m pip check
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 COPY datasets/ ./datasets/
