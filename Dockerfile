@@ -1,6 +1,10 @@
 
 FROM python:3.11-slim
 
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -8,8 +12,13 @@ ENV PYTHONUNBUFFERED=1
 ENV APP_DATA_DIR=/app/data
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN python -m pip install \
+    --no-cache-dir \
+    --retries 10 \
+    --timeout 120 \
+    -r requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade \
+    pip==24.3.1 setuptools==75.8.0 wheel==0.45.1
 COPY backend/ ./backend/
 COPY frontend/ ./frontend/
 COPY datasets/ ./datasets/
