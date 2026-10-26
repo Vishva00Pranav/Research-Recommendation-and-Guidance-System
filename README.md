@@ -89,4 +89,4 @@ python backend/generate_labs.py
 python backend/train_model.py
 ```
 
-*Executing `train_model.py` will update all the `.pkl` files in the `models/` directory, immediately updating the platform offline inference capabilities.*
+*Executing `train_model.py` will update all the `.pkl` files in the `models/` directory, immediately updating the platform's offline inference capabilities.*
